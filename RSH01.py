@@ -11,11 +11,12 @@ import displayGroupMdbToolset as dgm
 executeOnCaeStartup()
 Mdb()
 
-# only have the mesh of thinPart refined
 
-# <editor-fold desc="parameter">
-kh=0.1 ; kd = 0.02 ; ks=0.5;
-mdb.saveAs(pathName='C:/ABAQUSF/Residual/RSH01')   #InitialConditionMethod
+
+kh=0.1
+kd = 0.02
+ks=0.5
+mdb.saveAs(pathName='C:/ABAQUSF/Residual/RSH01')   #save files
 mdb.Job(name='RSH01RS001T', model='Model-1', description='', type=ANALYSIS,
     atTime=None, waitMinutes=0, waitHours=0, queue=None, memory=90,
     memoryUnits=PERCENTAGE, getMemoryFromAnalysis=True,
@@ -23,7 +24,12 @@ mdb.Job(name='RSH01RS001T', model='Model-1', description='', type=ANALYSIS,
     modelPrint=OFF, contactPrint=OFF, historyPrint=OFF, userSubroutine='',
     scratch='', resultsFormat=ODB, multiprocessingMode=DEFAULT, numCpus=4,
     numDomains=4, numGPUs=0)
-#l=height&weight;E=elastic modulus;miu=poisson ratio;athin=expansion ratio of thinPart;RS=Residual Stress
+
+#l: height&weight;
+#E: elastic modulus
+#miu: poisson ratio
+#athin: expansion ratio of thinPart
+#RS: Residual Stress
 kEY = 275
 l = 40.0  ; R=2; miu=0.3 ;Y=276; E = Y*kEY*(1-miu**2); RS=ks*E
 tr = 5
@@ -40,10 +46,10 @@ print 'mes=',mes
 print 'l=',l
 print 'R=',R
 print 'Disp=',Disp
-# </editor-fold>
 
-#create Part
-# <editor-fold desc="Part">
+
+############################## Part ###################################
+
 #create rigid indenter
 s = mdb.models['Model-1'].ConstrainedSketch(name='__profile__',
     sheetSize=1000.0)
@@ -97,10 +103,9 @@ p.BaseShell(sketch=s)
 s.unsetPrimaryObject()
 session.viewports['Viewport: 1'].setValues(displayedObject=p)
 del mdb.models['Model-1'].sketches['__profile__']
-# </editor-fold>
 
-#creat Propriety
-# <editor-fold desc="Propriety">
+########################### Propriety ####################################
+
 mdb.models['Model-1'].Material(name='M-thick')
 mdb.models['Model-1'].materials['M-thick'].Elastic(table=((E, miu),))
 mdb.models['Model-1'].materials['M-thick'].Plastic(table=((Y, 0.0), ))
@@ -127,10 +132,10 @@ region = regionToolset.Region(faces=faces)
 p.SectionAssignment(region=region, sectionName='S-thin', offset=0.0,
     offsetType=MIDDLE_SURFACE, offsetField='',
     thicknessAssignment=FROM_SECTION)
-# </editor-fold>
 
-#create Assembly
-# <editor-fold desc="Assembly">
+
+#################################################Assembly############################################
+
 a = mdb.models['Model-1'].rootAssembly
 a.DatumCsysByThreePoints(coordSysType=CYLINDRICAL, origin=(0.0, 0.0, 0.0),
     point1=(1.0, 0.0, 0.0), point2=(0.0, 0.0, -1.0))
@@ -140,10 +145,8 @@ p = mdb.models['Model-1'].parts['thickPart']
 a.Instance(name='thickPart-1', part=p, dependent=ON)
 p = mdb.models['Model-1'].parts['thinPart']
 a.Instance(name='thinPart-1', part=p, dependent=ON)
-# </editor-fold>
 
-#Set&Surf
-# <editor-fold desc="creat set&urf">
+####################################Set&Surf#############################################
 #set
 a = mdb.models['Model-1'].rootAssembly
 edges1 = a.instances['thinPart-1'].edges.findAt(((l/2,0.0,0.0),))
@@ -172,10 +175,9 @@ a.Surface(side1Edges=side1Edges1, name='tieOFthinPart')
 s1 = a.instances['thickPart-1'].edges
 side1Edges1 = s1.findAt(((0.01,-h,0.0),))
 a.Surface(side1Edges=side1Edges1, name='tieOFthickPart')
-# </editor-fold>
 
-#create Step
-# <editor-fold desc="Step">
+#################################### Step ##########################################
+
 mdb.models['Model-1'].StaticStep(name='Move', previous='Initial', nlgeom=ON,maxNumInc=100000)
 mdb.models['Model-1'].StaticStep(name='Expansion', previous='Initial')
 #create Output
@@ -195,10 +197,10 @@ regionDef=mdb.models['Model-1'].rootAssembly.sets['contactSet']
 mdb.models['Model-1'].HistoryOutputRequest(name='H-contactSet',
     createStepName='Move', variables=('CFN1', 'CFN2', 'CAREA'),
     numIntervals=datanum, region=regionDef, sectionPoints=DEFAULT, rebar=EXCLUDE)
-# </editor-fold>
 
-#create Interaction
-# <editor-fold desc="Interaction">
+
+#######################################Interaction/Contact ######################################
+
 mdb.models['Model-1'].ContactProperty('IntProp-1')
 a = mdb.models['Model-1'].rootAssembly
 side1Edges1 = a.instances['indenter-1'].edges.getSequenceFromMask(mask=('[#1 ]', ), )
@@ -214,10 +216,9 @@ region2=a.surfaces['tieOFthinPart']
 mdb.models['Model-1'].Tie(name='Constraint-1', master=region1, slave=region2,
     positionToleranceMethod=COMPUTED, adjust=ON, tieRotations=ON, thickness=ON)
 
-# </editor-fold>
 
-#create Load
-# <editor-fold desc="Load">
+################################# Load ###################################
+
 a = mdb.models['Model-1'].rootAssembly
 region = a.sets['X-fix-left']
 mdb.models['Model-1'].XsymmBC(name='BC-X-fix', createStepName='Initial',
@@ -248,9 +249,10 @@ mdb.models['Model-1'].predefinedFields['Predefined Field-T'].resetToPropagated(
     stepName='Move')
 # </editor-fold>
 
-#create mesh
-# <editor-fold desc="Mesh">
-# <editor-fold desc="mesh thin part">
+########################################### mesh #################################
+#thinpart: with residual stress, #mesh of thinPart are refined
+#thickpart:No residual stress
+#mesh thin part
 #hy:y coordinate of origin point of the part
 def MeshRefineA(lengOld,lengNew,round,hy=0.0,meshPart='thinPart'):
     ratio1=2**round
@@ -299,6 +301,7 @@ def MeshRefineA(lengOld,lengNew,round,hy=0.0,meshPart='thinPart'):
         p.seedEdgeByNumber(edges=i, number=2, constraint=FINER)
     p.seedEdgeBySize(edges=e.findAt(((lengNew-mes,-hy,0.0),),((0.0,-lengNew-mes,0.0),)),
                      size=mes*ratio2,constraint=FINER)
+
 
 def FinalRefineA(lengf,roundf,hy=0.0,meshPart='thinPart'):
     ratiof=2**roundf
@@ -423,10 +426,8 @@ for i in range(start,end):
     if i== end-1:
         FinalRefineB(roundf=i,hy=0)
 
-# </editor-fold>
 
 #mesh thickPart
-# <editor-fold desc="mesh thickPart">
 
 mes = 2**(end-2)*mes
 leng=[]
@@ -461,9 +462,4 @@ MeshRefineA(lengOld=leng[end2-1],lengNew=leng[end2],round=end2,hy=h,meshPart='th
     MeshRefineA(lengOld=leng[i-1],lengNew=leng[i],round=i,hy=h,meshPart='thickPart')
     if i==4:
         FinalRefineA(lengf=leng[i],roundf=i,hy=h,meshPart='thickPart')'''
-
-
-# </editor-fold>
-
-
 
